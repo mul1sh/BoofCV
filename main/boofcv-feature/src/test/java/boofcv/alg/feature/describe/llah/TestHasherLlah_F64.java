@@ -18,6 +18,7 @@
 
 package boofcv.alg.feature.describe.llah;
 
+import org.ddogleg.util.PrimitiveArrays;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
@@ -49,11 +50,6 @@ class TestHasherLlah_F64 {
 	}
 
 	@Test
-	void setDiscretization() {
-		fail("Implement");
-	}
-
-	@Test
 	void learnDiscretization() {
 		int N = 120;
 		double[] invariants = new double[N+20];
@@ -70,14 +66,18 @@ class TestHasherLlah_F64 {
 			invariants[N+i] = 12.1f;
 		}
 		// shuffle the order to make sure it's sorted
-//		PrimitiveArrays.shuffle(invariants,0,N,rand);
+		PrimitiveArrays.shuffle(invariants,0,N,rand);
 
 		var alg = new HasherLlah_F64();
 
 		// this total number of discrete values is larger than the actual number of unique values
 		// and the look up table size is over kill. This should yield perfect results
-		alg.learnDiscretization(invariants,N,2000,400);
-		check(alg,invariants,N,-1);
+		alg.learnDiscretization(invariants,N,150);
+		check(alg,invariants,N,120);
+
+		// under sample the invariants
+		alg.learnDiscretization(invariants,N,80);
+		check(alg,invariants,N,80);
 	}
 
 	private void check( HasherLlah_F64 alg , double[] invariants , int length , int expectedUnique ) {
@@ -88,12 +88,17 @@ class TestHasherLlah_F64 {
 
 		for (int i = 0; i < length; i++) {
 			int d = alg.discretize(invariants[i]);
-			System.out.println("["+invariants[i]+"] = "+d);
 			uniqueSet.add(d);
 			minD = Math.min(minD,d);
 			maxD = Math.max(maxD,d);
 		}
-		int N = alg.getNumDiscreteValues();
+
+		int N = alg.getNumValues();
+
+		// check a value out of range
+		assertEquals(0,alg.discretize(-1000));
+		assertEquals(N-1,alg.discretize(1000));
+
 		assertEquals(0,minD);
 		assertEquals(N-1,maxD);
 		if( expectedUnique > 0 )

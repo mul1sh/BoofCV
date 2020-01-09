@@ -21,6 +21,7 @@ package boofcv.alg.feature.describe.llah;
 import boofcv.alg.geo.PerspectiveOps;
 import georegression.struct.point.Point2D_F64;
 import lombok.Getter;
+import lombok.Setter;
 import org.ddogleg.combinatorics.Combinations;
 
 import java.util.Arrays;
@@ -33,15 +34,10 @@ import java.util.List;
  */
 public class HasherLlah_F64 {
 
-	/** The Number discrete values possible */
-	@Getter private int numDiscreteValues;
-
-	/** The minimum invariant value found in training set */
-	@Getter private double minContinuousValue;
-	/** The range of possible invariant values found in training set */
-	@Getter private double rangeContinuousValue;
-	/** Lookup table used to convert an invariant into a discrete value */
-	@Getter private int[] lookupTable;
+	/**
+	 * Defines the look up table. A binary search should be used to effectively find the index of a value
+	 */
+	@Setter @Getter private double[] samples;
 
 	/**
 	 * k^i in the hash function
@@ -56,7 +52,17 @@ public class HasherLlah_F64 {
 	private Combinations<Point2D_F64> combinator = new Combinations<>();
 
 	/**
-	 * Compuets the hashcode for affine
+	 * Configues the hash function. See JavaDoc for info on variables
+	 */
+	public HasherLlah_F64(long hashK, int hashSize) {
+		this.hashK = hashK;
+		this.hashSize = hashSize;
+	}
+
+	/**
+	 * Compuetes the hashcode for affine
+	 *
+	 * @param points Points in clockwise order around p[0]
 	 */
 	public void computeHashAffine(List<Point2D_F64> points , LlahFeature output ) {
 		combinator.init(points,4);
@@ -108,55 +114,51 @@ public class HasherLlah_F64 {
 	 * Computes the discrete value from the continuous valued invariant
 	 */
 	public int discretize( double invariant ) {
-		if( invariant >= minContinuousValue+rangeContinuousValue )
-			return numDiscreteValues-1;
-		else if( invariant < minContinuousValue )
-			return 0;
+		return lowerBound(samples,0,samples.length,invariant);
+	}
 
-		// fractional location in the range of possible values
-		double locationFrac = (invariant-minContinuousValue)/rangeContinuousValue;
-		return lookupTable[ (int)((lookupTable.length-1)*locationFrac+0.5)];
+	// TODO replace with version in DDogleg PrimitiveArrays.lowerBound() once upgraded
+	public static int lowerBound( double[] array, int offset , int length , double val ) {
+		int count = length;
+		int first = offset;
+		while( count > 0 ) {
+			int step = count/2;
+			int idx = first+step;
+			if( array[idx] < val ) {
+				first = idx+1;
+				count -= step+1;
+			} else {
+				count = step;
+			}
+		}
+		return first;
 	}
 
 	/**
-	 * Specifies how to discretize the continuous invariants
-	 */
-	public void setDiscretization(int[] lookupTable, double minContinuousValue, int numDiscreteValues, double rangeContinuousValue) {
-		this.numDiscreteValues = numDiscreteValues;
-		this.minContinuousValue = minContinuousValue;
-		this.rangeContinuousValue = rangeContinuousValue;
-		this.lookupTable = lookupTable;
-	}
-
-	/**
-	 * From a dataset of computed found feature invariants, compute a look up table to convert the
-	 * continuous values into discrete values. The table is designed to have more possible values where
-	 * there are more continuous values.
+	 * Create a lookup table by sorting then sampling the invariants. This will have the desired property of
+	 * having a denser set of points where there is a higher density of values.
 	 *
 	 * @param invariants Set of computed feature invariant values. This will be modified.
 	 * @param length Number of invariants.
-	 * @param lookupSize Number of elements in lookup table. Large values means it can fit better to distribution of
-	 *                     invariant values
 	 * @param numDiscrete Number of possible discrete values. Larger values indicate higher resolution in discretation
 	 */
-	public void learnDiscretization( double[] invariants , int length , int lookupSize, int numDiscrete ) {
-		this.lookupTable = new int[lookupSize];
-		this.numDiscreteValues = numDiscrete;
+	public void learnDiscretization( double[] invariants , int length , int numDiscrete ) {
+		this.samples = new double[numDiscrete];
 
 		// sort invariants from smallest to largest
 		Arrays.sort(invariants,0,length);
-		this.minContinuousValue = invariants[0];
-		this.rangeContinuousValue = invariants[length-1]-minContinuousValue;
 
-		System.out.println("min   "+minContinuousValue);
-		System.out.println("range "+rangeContinuousValue);
-
-		// a value slightly less than the max so it rounds down
-		double numDiscreteF = numDiscrete-1e-16;
-
-		for (int i = 0; i < lookupSize; i++) {
-			int idx = length*i/lookupSize;
-			lookupTable[i] = (int)((numDiscrete-1)*((invariants[idx]-minContinuousValue)/rangeContinuousValue)+0.5);
+		// sample points evenly by index. samples[0] will be smallest value and samples[MAX] will be largest
+		for (int i = 0; i < numDiscrete; i++) {
+			int idx = (length-1)*i/(numDiscrete-1);
+			samples[i] = invariants[idx];
 		}
+
+		// We want the output to always be from 0 to numDiscrete-1. This will ensure that
+		samples[numDiscrete-1] = Double.MAX_VALUE;
+	}
+
+	public int getNumValues() {
+		return samples.length;
 	}
 }
