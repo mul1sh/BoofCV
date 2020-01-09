@@ -93,7 +93,7 @@ public class HasherLlah_F64 {
 			Point2D_F64 p3 = combinator.get(2);
 			Point2D_F64 p4 = combinator.get(3);
 			Point2D_F64 p5 = combinator.get(4);
-			double invariant = PerspectiveOps.invariantProjective(p1,p2,p3,p4,p5);
+			double invariant = PerspectiveOps.invariantCrossRatio(p1,p2,p3,p4,p5);
 			int r = output.invariants[i++] = discretize(invariant);
 
 			hash += r*k;
@@ -115,7 +115,7 @@ public class HasherLlah_F64 {
 
 		// fractional location in the range of possible values
 		double locationFrac = (invariant-minContinuousValue)/rangeContinuousValue;
-		return lookupTable[ (int)((lookupTable.length-1)*locationFrac)];
+		return lookupTable[ (int)((lookupTable.length-1)*locationFrac+0.5)];
 	}
 
 	/**
@@ -133,7 +133,7 @@ public class HasherLlah_F64 {
 	 * continuous values into discrete values. The table is designed to have more possible values where
 	 * there are more continuous values.
 	 *
-	 * @param invariants Set of computed feature invariant values.
+	 * @param invariants Set of computed feature invariant values. This will be modified.
 	 * @param length Number of invariants.
 	 * @param lookupSize Number of elements in lookup table. Large values means it can fit better to distribution of
 	 *                     invariant values
@@ -143,24 +143,20 @@ public class HasherLlah_F64 {
 		this.lookupTable = new int[lookupSize];
 		this.numDiscreteValues = numDiscrete;
 
+		// sort invariants from smallest to largest
 		Arrays.sort(invariants,0,length);
 		this.minContinuousValue = invariants[0];
 		this.rangeContinuousValue = invariants[length-1]-minContinuousValue;
 
-		for (int i = 0; i < numDiscreteValues; i++) {
-			int idx0 = i*length/numDiscreteValues;
-			int idx1 = (i+1)*length/numDiscreteValues;
+		System.out.println("min   "+minContinuousValue);
+		System.out.println("range "+rangeContinuousValue);
 
-			double frac0 = (invariants[idx0]-minContinuousValue)/rangeContinuousValue;
-			double frac1 = (invariants[idx1]-minContinuousValue)/rangeContinuousValue;
+		// a value slightly less than the max so it rounds down
+		double numDiscreteF = numDiscrete-1e-16;
 
-
-			int table0 = (int)((length-1)*frac0);
-			int table1 = (int)((length-1)*frac1)+1;
-
-			for (int j = table0; j < table1; j++) {
-				lookupTable[j] = i;
-			}
+		for (int i = 0; i < lookupSize; i++) {
+			int idx = length*i/lookupSize;
+			lookupTable[i] = (int)((numDiscrete-1)*((invariants[idx]-minContinuousValue)/rangeContinuousValue)+0.5);
 		}
 	}
 }
