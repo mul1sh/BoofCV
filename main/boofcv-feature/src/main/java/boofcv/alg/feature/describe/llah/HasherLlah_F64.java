@@ -60,16 +60,18 @@ public class HasherLlah_F64 {
 	}
 
 	/**
-	 * Compuetes the hashcode for affine
+	 * Computes the hashcode for affine.
 	 *
-	 * @param points Points in clockwise order around p[0]
+	 * @param points Set of points. Must be &ge; 4.
 	 */
 	public void computeHashAffine(List<Point2D_F64> points , LlahFeature output ) {
+		if( points.size() < 4 )
+			throw new IllegalArgumentException("Must be at least 5 points");
 		combinator.init(points,4);
 		long hash = 0;
 		int i = 0;
 		long k = 1;
-		while( combinator.next() ) {
+		do {
 			Point2D_F64 p1 = combinator.get(0);
 			Point2D_F64 p2 = combinator.get(1);
 			Point2D_F64 p3 = combinator.get(2);
@@ -80,20 +82,24 @@ public class HasherLlah_F64 {
 			hash += r*k;
 
 			k *= hashK;
-		}
+		} while( combinator.next() );
 
 		output.hashCode = (int)(hash % hashSize);
 	}
 
 	/**
-	 * Compuets the hashcode for perspective
+	 * Computes the hashcode for perspective invariant using cross ratio.
+	 *
+	 * @param points Set of points. Must be &ge; 5.
 	 */
 	public void computeHashPerspective(List<Point2D_F64> points , LlahFeature output ) {
+		if( points.size() < 5 )
+			throw new IllegalArgumentException("Must be at least 5 points");
 		combinator.init(points,5);
 		long hash = 0;
 		int i = 0;
 		long k = 1;
-		while( combinator.next() ) {
+		do {
 			Point2D_F64 p1 = combinator.get(0);
 			Point2D_F64 p2 = combinator.get(1);
 			Point2D_F64 p3 = combinator.get(2);
@@ -105,7 +111,7 @@ public class HasherLlah_F64 {
 			hash += r*k;
 
 			k *= hashK;
-		}
+		} while( combinator.next() );
 
 		output.hashCode = (int)(hash % hashSize);
 	}

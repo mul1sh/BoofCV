@@ -18,14 +18,16 @@
 
 package boofcv.alg.feature.describe.llah;
 
+import georegression.geometry.UtilPoint2D_F64;
+import georegression.struct.point.Point2D_F64;
 import org.ddogleg.util.PrimitiveArrays;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Random;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * @author Peter Abeles
@@ -36,12 +38,57 @@ class TestHasherLlah_F64 {
 
 	@Test
 	void computeHashAffine() {
-		fail("Implement");
+		List<Point2D_F64> points = UtilPoint2D_F64.random(-5,5,4,rand);
+
+		var alg = new HasherLlah_F64(5,200);
+		alg.setSamples(createSamples());
+		var feature = new LlahFeature(1);
+		alg.computeHashAffine(points,feature);
+		checkFeature(feature);
+
+		points = UtilPoint2D_F64.random(-5,5,6,rand);
+		feature = new LlahFeature(15);
+		alg.computeHashAffine(points,feature);
+		checkFeature(feature);
+	}
+
+	private double[] createSamples() {
+		double[] samples = new double[8];
+
+		samples[0] = 0.05;
+		for (int i = 1; i < samples.length; i++) {
+			samples[i] = samples[i-1]+rand.nextDouble();
+		}
+		return samples;
+	}
+
+	private void checkFeature( LlahFeature feature ) {
+		assertTrue(feature.hashCode != 0);
+		assertNull(feature.next);
+		boolean allZero = true;
+		for (int i = 0; i < feature.invariants.length; i++) {
+			if( feature.invariants[i] != 0 ) {
+				allZero = false;
+				break;
+			}
+		}
+		assertFalse(allZero);
 	}
 
 	@Test
 	void computeHashPerspective() {
-		fail("Implement");
+		List<Point2D_F64> points = UtilPoint2D_F64.random(-5,5,5,rand);
+
+		var alg = new HasherLlah_F64(5,200);
+		alg.setSamples(createSamples());
+		var feature = new LlahFeature(1);
+		alg.computeHashPerspective(points,feature);
+		checkFeature(feature);
+
+		points = UtilPoint2D_F64.random(-5,5,7,rand);
+		feature = new LlahFeature(21);
+		alg.computeHashPerspective(points,feature);
+		checkFeature(feature);
 	}
 
 	@Test
@@ -68,7 +115,7 @@ class TestHasherLlah_F64 {
 		// shuffle the order to make sure it's sorted
 		PrimitiveArrays.shuffle(invariants,0,N,rand);
 
-		var alg = new HasherLlah_F64();
+		var alg = new HasherLlah_F64(1,1);
 
 		// this total number of discrete values is larger than the actual number of unique values
 		// and the look up table size is over kill. This should yield perfect results
